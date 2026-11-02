@@ -49,11 +49,23 @@ main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; 
 h1 { font-family: var(--display); font-weight: 800; font-size: clamp(36px, 9vw, 60px); line-height: 1; margin: 6px 0 0; text-wrap: balance; text-transform: uppercase; }
 .target { color: var(--muted); margin-top: 10px; }
 .clock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.clock .num { font-size: clamp(40px, 12vw, 84px); }
+.clock .num { font-size: clamp(34px, 10.5vw, 84px); }
 .clock .lbl { font-size: clamp(9px, 2.6vw, 12px); letter-spacing: .1em; }
-.unit { background: var(--tile); color: var(--tile-ink); border-radius: 14px; padding: 18px 8px 14px; text-align: center; position: relative; overflow: hidden; }
-.unit::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--bg); opacity: .35; }
+.unit { background: var(--tile); color: var(--tile-ink); border-radius: 14px; padding: 14px 4px 12px; text-align: center; position: relative; overflow: hidden; }
 .num { font-family: var(--display); font-weight: 800; font-size: clamp(52px, 16vw, 96px); line-height: 1; font-variant-numeric: tabular-nums; }
+.flap { position: relative; height: 1.1em; line-height: 1.1em; perspective: 4em; }
+.half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; background: var(--tile); backface-visibility: hidden; }
+.half span { display: block; white-space: nowrap; height: 1.1em; line-height: 1.1em; text-align: center; }
+.half.top, .half.ftop { top: 0; border-radius: 6px 6px 0 0; }
+.half.bottom, .half.fbot { bottom: 0; border-radius: 0 0 6px 6px; }
+.half.bottom span, .half.fbot span { transform: translateY(-50%); }
+.half.top, .half.ftop { background: color-mix(in srgb, var(--tile) 88%, var(--tile-ink)); }
+.half.ftop { z-index: 2; transform-origin: bottom; animation: flapTop .28s ease-in forwards; }
+.half.fbot { z-index: 2; transform-origin: top; transform: rotateX(90deg); animation: flapBot .28s .28s ease-out forwards; }
+.flap::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--tile); filter: brightness(.6); z-index: 3; }
+@keyframes flapTop { to { transform: rotateX(-90deg); } }
+@keyframes flapBot { to { transform: rotateX(0deg); } }
+@media (prefers-reduced-motion: reduce) { .half.ftop, .half.fbot { display: none; } }
 .lbl { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; margin-top: 8px; }
 .done { font-family: var(--display); font-weight: 800; font-size: 40px; text-align: center; color: var(--accent); text-transform: uppercase; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -83,10 +95,10 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   </header>
 
   <section class="clock" id="clock" aria-live="polite">
-    <div class="unit"><div class="num" id="d">00</div><div class="lbl">Días</div></div>
-    <div class="unit"><div class="num" id="h">00</div><div class="lbl">Horas</div></div>
-    <div class="unit"><div class="num" id="m">00</div><div class="lbl">Minutos</div></div>
-    <div class="unit"><div class="num" id="s">00</div><div class="lbl">Segundos</div></div>
+    <div class="unit"><div class="num flap" id="d"></div><div class="lbl">Días</div></div>
+    <div class="unit"><div class="num flap" id="h"></div><div class="lbl">Horas</div></div>
+    <div class="unit"><div class="num flap" id="m"></div><div class="lbl">Minutos</div></div>
+    <div class="unit"><div class="num flap" id="s"></div><div class="lbl">Segundos</div></div>
   </section>
   <div class="done" id="done" hidden>¡Llegó el día!</div>
 
@@ -115,14 +127,26 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     return { ms: ms, d: Math.floor(secs / 86400), h: Math.floor((secs % 86400) / 3600), m: Math.floor((secs % 3600) / 60), s: secs % 60 };
   }
 
-  var fmt = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
+  var fmt = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Argentina/Buenos_Aires" });
+
+  function half(cls, v) { return '<div class="half ' + cls + '"><span>' + v + '</span></div>'; }
+  function flip(el, v) {
+    var old = el.dataset.v;
+    if (old === v) return;
+    el.dataset.v = v;
+    if (old === undefined) { el.innerHTML = half("top", v) + half("bottom", v); return; }
+    // arriba ya muestra el nuevo; abajo sigue el viejo hasta que cae la paleta
+    el.innerHTML = half("top", v) + half("bottom", old) + half("ftop", old) + half("fbot", v);
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { if (el.dataset.v === v) el.innerHTML = half("top", v) + half("bottom", v); }, 620);
+  }
 
   function render() {
     var r = remaining();
-    $("d").textContent = r.d > 99 ? r.d : pad(r.d);
-    $("h").textContent = pad(r.h);
-    $("m").textContent = pad(r.m);
-    $("s").textContent = pad(r.s);
+    flip($("d"), r.d > 99 ? String(r.d) : pad(r.d));
+    flip($("h"), pad(r.h));
+    flip($("m"), pad(r.m));
+    flip($("s"), pad(r.s));
     var over = r.ms === 0;
     $("clock").hidden = over;
     $("done").hidden = !over;
