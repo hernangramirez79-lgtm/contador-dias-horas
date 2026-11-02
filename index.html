@@ -100,7 +100,7 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     <textarea class="fallback" id="fallback" rows="3" hidden readonly></textarea>
   </div>
 
-  <form class="editor" id="form">
+  <form class="editor" id="form" hidden>
     <h2>Configurar evento</h2>
     <label>Nombre del evento
       <input id="inName" type="text" maxlength="60" value="Año Nuevo 2027">
@@ -194,12 +194,16 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     } catch (e) { fallback(); }
   }
   function ensureHash() { if (!location.hash) writeHash(); }
+  // El link que se comparte nunca lleva el modo edición: solo dirección + evento.
+  function shareUrl() { ensureHash(); return location.origin + location.pathname + location.hash; }
+
+  // El editor solo aparece si la dirección tiene ?editar
+  if (new URLSearchParams(location.search).has("editar")) $("form").hidden = false;
 
   $("copyMsg").addEventListener("click", function () { copy(message(), "Mensaje copiado. Pegalo en WhatsApp."); });
-  $("copyLink").addEventListener("click", function () { ensureHash(); copy(location.href, "Link copiado."); });
+  $("copyLink").addEventListener("click", function () { copy(shareUrl(), "Link copiado."); });
   $("waShare").addEventListener("click", function () {
-    ensureHash();
-    this.href = "https://wa.me/?text=" + encodeURIComponent(message() + "\n\nMirala en vivo 👉 " + location.href);
+    this.href = "https://wa.me/?text=" + encodeURIComponent(message() + "\n\nMirala en vivo 👉 " + shareUrl());
   });
 
   window.addEventListener("hashchange", function () { readHash(); syncForm(); render(); });
