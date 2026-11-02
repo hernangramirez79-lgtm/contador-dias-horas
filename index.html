@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cuenta Regresiva</title>
+<title>Maresias 2027</title>
 <meta name="description" content="Mirá cuánto falta: días, horas, minutos y segundos.">
-<meta property="og:title" content="⏳ Cuenta regresiva">
-<meta property="og:description" content="Tocá para ver cuánto falta, en vivo.">
+<meta property="og:title" content="⏳ Maresias 2027">
+<meta property="og:description" content="Tocá para ver cuánto falta para el viaje, en vivo.">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Figtree:wght@400;500;600&display=swap">
 <style>
@@ -78,7 +78,7 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 <main>
   <header>
     <div class="eyebrow">Faltan</div>
-    <h1 id="title">Año Nuevo 2027</h1>
+    <h1 id="title">Maresias 2027</h1>
     <div class="target" id="target"></div>
   </header>
 
@@ -100,44 +100,14 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     <textarea class="fallback" id="fallback" rows="3" hidden readonly></textarea>
   </div>
 
-  <form class="editor" id="form" hidden>
-    <h2>Configurar evento</h2>
-    <label>Nombre del evento
-      <input id="inName" type="text" maxlength="60" value="Año Nuevo 2027">
-    </label>
-    <div class="row">
-      <label>Fecha <input id="inDate" type="date" value="2027-01-01" required></label>
-      <label>Hora <input id="inTime" type="time" value="00:00" required></label>
-    </div>
-    <div class="actions"><button class="primary" type="submit" id="save">Actualizar cuenta regresiva</button></div>
-    <p class="hint">Al actualizar, el link de la página guarda el evento. Usá "Enviar por WhatsApp" o "Copiar link" y quien lo abra ve la misma cuenta regresiva, en vivo.</p>
-  </form>
 </main>
 
 <script>
 (function () {
-  var state = { name: "Año Nuevo 2027", date: new Date(2027, 0, 1, 0, 0) };
+  // Evento fijo: 15/02/2027 06:25, hora de Argentina (UTC-3 = 09:25 UTC)
+  var state = { name: "Maresias 2027", date: new Date(Date.UTC(2027, 1, 15, 9, 25)) };
   var $ = function (id) { return document.getElementById(id); };
   var pad = function (n) { return String(n).padStart(2, "0"); };
-
-  function toHex(s) { return Array.from(new TextEncoder().encode(s)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
-  function fromHex(h) { var b = new Uint8Array((h.match(/.{2}/g) || []).map(function (x) { return parseInt(x, 16); })); return new TextDecoder().decode(b); }
-
-  function readHash() {
-    var m = /^#c-(\d{12})(?:-([0-9a-f]+))?$/.exec(location.hash);
-    if (!m) return;
-    var s = m[1];
-    var d = new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12));
-    if (isNaN(d)) return;
-    state.date = d;
-    if (m[2]) { try { state.name = fromHex(m[2]) || state.name; } catch (e) {} }
-  }
-  function writeHash() {
-    var d = state.date;
-    var s = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + pad(d.getHours()) + pad(d.getMinutes());
-    var h = "#c-" + s + (state.name ? "-" + toHex(state.name) : "");
-    try { history.replaceState(null, "", h); } catch (e) { location.hash = h; }
-  }
 
   function remaining() {
     var ms = Math.max(0, state.date - new Date());
@@ -145,12 +115,10 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     return { ms: ms, d: Math.floor(secs / 86400), h: Math.floor((secs % 86400) / 3600), m: Math.floor((secs % 3600) / 60), s: secs % 60 };
   }
 
-  var fmt = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  var fmt = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
 
   function render() {
     var r = remaining();
-    $("title").textContent = state.name || "Mi evento";
-    $("target").textContent = fmt.format(state.date) + " h";
     $("d").textContent = r.d > 99 ? r.d : pad(r.d);
     $("h").textContent = pad(r.h);
     $("m").textContent = pad(r.m);
@@ -160,31 +128,13 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     $("done").hidden = !over;
   }
 
-  function syncForm() {
-    var d = state.date;
-    $("inName").value = state.name;
-    $("inDate").value = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-    $("inTime").value = pad(d.getHours()) + ":" + pad(d.getMinutes());
-  }
-
   function toast(t) { $("toast").textContent = t; clearTimeout(toast.t); toast.t = setTimeout(function () { $("toast").textContent = ""; }, 3000); }
-
-  $("form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var p = $("inDate").value.split("-"), t = $("inTime").value.split(":");
-    var d = new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1]);
-    if (isNaN(d)) { toast("Revisá la fecha y la hora."); return; }
-    state.name = $("inName").value.trim();
-    state.date = d;
-    writeHash(); render();
-    toast("Cuenta regresiva actualizada.");
-  });
 
   function message() {
     var r = remaining();
     return r.ms === 0
       ? "⏰ ¡Llegó " + state.name + "!"
-      : "⏳ Faltan " + r.d + " días, " + r.h + " horas, " + r.m + " minutos y " + r.s + " segundos para " + state.name + " (" + fmt.format(state.date) + " h)";
+      : "⏳ Faltan " + r.d + " días, " + r.h + " horas, " + r.m + " minutos y " + r.s + " segundos para " + state.name + " 🌴";
   }
   function copy(text, okMsg) {
     var fb = $("fallback");
@@ -193,12 +143,10 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
       navigator.clipboard.writeText(text).then(function () { fb.hidden = true; toast(okMsg); }, fallback);
     } catch (e) { fallback(); }
   }
-  function ensureHash() { if (!location.hash) writeHash(); }
-  // El link que se comparte nunca lleva el modo edición: solo dirección + evento.
-  function shareUrl() { ensureHash(); return location.origin + location.pathname + location.hash; }
+  function shareUrl() { return location.origin + location.pathname; }
 
-  // El editor solo aparece si la dirección tiene ?editar
-  if (new URLSearchParams(location.search).has("editar")) $("form").hidden = false;
+  $("title").textContent = state.name;
+  $("target").textContent = fmt.format(state.date) + " h";
 
   $("copyMsg").addEventListener("click", function () { copy(message(), "Mensaje copiado. Pegalo en WhatsApp."); });
   $("copyLink").addEventListener("click", function () { copy(shareUrl(), "Link copiado."); });
@@ -206,8 +154,7 @@ a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     this.href = "https://wa.me/?text=" + encodeURIComponent(message() + "\n\nMirala en vivo 👉 " + shareUrl());
   });
 
-  window.addEventListener("hashchange", function () { readHash(); syncForm(); render(); });
-  readHash(); syncForm(); render();
+  render();
   setInterval(render, 1000);
 })();
 </script>
